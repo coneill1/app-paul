@@ -3,6 +3,7 @@ var parser = new xml2js.Parser();
 var http = require("http");
 var https = require('https');
 var jsdom = require('jsdom');
+var Enum = require('enum');
 const { JSDOM } = jsdom;
 
 
@@ -66,24 +67,56 @@ https.get(uofu_all_xml_link, function(result, err) {
             var length = result.rss.channel[0].item.length;
             var item = result.rss.channel[0].item;
             
-            console.log("Event: "+item[0].title.toString());
-            parseDetails(item[0].description);
-            
-            console.log("Event: "+item[1].title.toString());
-            parseDetails(item[1].description);
-            
-            console.log("Event: "+item[2].title.toString());
-            parseDetails(item[2].description);
-            
-            console.log("Event: "+item[8].title.toString());
-            parseDetails(item[3].description);
-            
-            console.log("Event: "+item[9].title.toString());
-            parseDetails(item[4].description);
+            for(var i=0; i<length; i++) {
+                var event = [];
+                event.title = item[i].title.toString();
+                var details = parseDetails(item[i].description.toString());
+                if(details.time != null) {
+                    event.time = details.time;
+                }
+                if(details.location != null) {
+                    event.location = details.location;
+                }
+                if(details.imgLink != null) {
+                    event.imgLink = details.imgLink;
+                }
+
+                event.link = item[i].link.toString();
+                event.startDate = item[i].category.toString();
+
+                uofuEvents[i] = event;
+            }
+
+            test();
         })
         
     })
 })
+
+function test() {
+    for(var i = 0; i<uofuEvents.length; i++) {
+        if(uofuEvents[i].about == null) {
+            
+        }
+        console.log(uofuEvents[i].title);
+        console.log("Start Date: "+uofuEvents[i].startDate);
+
+        if(uofuEvents[i].imgLink != null) {
+            console.log("Image Link: "+uofuEvents[i].imgLink);
+        }
+        if(uofuEvents[i].time != null) {
+            console.log("Time: "+uofuEvents[i].time);
+        }
+        if(uofuEvents[i].location != null) {
+            console.log("Location: "+uofuEvents[i].location);
+        }
+        if(uofuEvents[i].about != null) {
+            console.log("Description: "+uofuEvents[i].description);
+        }
+
+        console.log();
+    }
+}
 
 function parseDetails(details) {
     
@@ -91,76 +124,81 @@ function parseDetails(details) {
     var length = details.length;
     var info = [];
     
-    extractTime(details);
-    //extractInfo(details, info);
+    info.time = extractTime(details);
     
-//    var doc = new JSDOM("<!DOCTYPE html><html>" + details + "</html>").window.document;
-//    
-//    var allElements = doc.querySelector('body').childNodes;
-//    for(var i=0; i<allElements.length; i++) {
-//        if(allElements[i].nodeName == 'BR' || allElements[i].nodeName == 'A') {
-//            continue;
-//           }
-//        if(allElements[i].nodeName == 'B') {
-//            var label = allElements[i].innerHTML;
-//            var info = allElements[i].nextSibling.nodeValue;
-//            var href = '';
-//            if(allElements[i].nextSibling.nextSibling.nodeName == 'A') {
-//                href += allElements[i].nextSibling.nextSibling.getAttribute('href');
-//            }
-//            console.log(label + info);
-//            if(href.length > 0) {
-//                console.log("Link: " + href);
-//            }
-//            continue;
-//        }
-//        console.log(allElements[i] + ": " + allElements[i].nodeName);
-//    }
+   var doc = new JSDOM("<!DOCTYPE html><html>" + details + "</html>").window.document;
+   
+   var allElements = doc.querySelector('body').childNodes;
+   for(var i=0; i<allElements.length; i++) {
+       if(allElements[i].nodeName == 'BR' || allElements[i].nodeName == 'A') {
+           continue;
+          }
+       if(allElements[i].nodeName == 'B') {
+           var label = allElements[i].innerHTML;
+           
+           //get the location
+           if( label.toLowerCase().search("location") > -1) {
+               var anchorTag = allElements[i].nextSibling.nextSibling;
+               if(anchorTag.innerHTML != null) {
+                   info.location = anchorTag.innerHTML.toString();
+               } else {
+                   info.location = "none";
+               }
+               //need to find room #
+           }
+
+           //get the full description of the event
+           if(label.toLowerCase().search("full description") > -1) {
+               var descript = allElements[i].nextSibling.nodeValue.replace(":", "");
+               
+               info.about = descript;
+           }
+           console.log(info.about);
+       }
+   }
     
-//    var imgEl = doc.querySelector("img");
-//    
-//    if(imgEl != null) {
-//        console.log("Image Link: " + imgEl.attributes[0].value);
-//    }
-//    
-//    
-//    var infoNodes = doc.querySelectorAll("b");
-//    length = infoNodes.length;
-//    
-//    for(var i=0; i<length && i<info.length; i++) {
-//        console.log(infoNodes[i].innerHTML + ": " + info[i].replace("<br/>", "").replace(":&nbsp;", ""));
-//    }
-//    console.log("\n");
+   //get the image url
+   var imgEl = doc.querySelector("img");
+   if(imgEl != null) {
+       info.imgLink = imgEl.attributes[0].value.toString();
+   }
+
+   return info;
 }
 
 function extractTime(details) {
-   // var patt = /[1-9]{1,2}(am|pm)&nbsp;&ndash;&nbsp;[1-9]{1,2}(am|pm)/;
-    var patt = /&nbsp;&ndash;&nbsp;/;
+    var patt = /[0-9]+:*[0-9]*(am|pm)*&nbsp;&ndash;&nbsp;[0-9]+:*[0-9]*(am|pm)*/;
     var patt2 = /Ongoing through/;
     
-    console.log(details);
-    console.log(patt.test(details));
-    console.log(patt2.test(details));
+    var temp = patt.exec(details);
+    var time;
+    if(temp != null) {
+        time = temp[0];
+        time = time.replace("&nbsp;&ndash;&nbsp;", " - ");
+        return time;
+    }
+
+    return null;
 }
 
-function extractInfo(details, info) {
-    var bClosing = '</b>';
-    var bTag = '<b>';
-    for(var l = details.length, i = 0; i < l; i++) {
+// function extractInfo(details, info) {
+//     var bClosing = '</b>';
+//     var bTag = '<b>';
+//     for(var l = details.length, i = 0; i < l; i++) {
         
-        //find bClosing tag
-        if(details.slice(i, i+4) == bClosing) {
+//         //find bClosing tag
+//         if(details.slice(i, i+4) == bClosing) {
             
-            //then fine bTag and grab all the text inbetween
-            for(var index = i+4; index < l; index++) {
-                if(details.slice(index, index+3) == bTag) {
-                    info[info.length] = details.slice(i+4, index);
-                    break;
-                }
-            }
-        }
-    }
-}
+//             //then fine bTag and grab all the text inbetween
+//             for(var index = i+4; index < l; index++) {
+//                 if(details.slice(index, index+3) == bTag) {
+//                     info[info.length] = details.slice(i+4, index);
+//                     break;
+//                 }
+//             }
+//         }
+//     }
+// }
 
 
 
