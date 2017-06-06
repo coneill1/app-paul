@@ -80,6 +80,9 @@ https.get(uofu_all_xml_link, function(result, err) {
                 if(details.imgLink != null) {
                     event.imgLink = details.imgLink;
                 }
+                event.date = details.date;
+                event.address = details.address;
+                event.description = details.about;
 
                 event.link = item[i].link.toString();
                 event.startDate = item[i].category.toString();
@@ -94,12 +97,10 @@ https.get(uofu_all_xml_link, function(result, err) {
 })
 
 function test() {
-    for(var i = 0; i<uofuEvents.length; i++) {
-        if(uofuEvents[i].about == null) {
-            
-        }
+    for(var i = 0; i<20; i++) {
         console.log(uofuEvents[i].title);
         console.log("Start Date: "+uofuEvents[i].startDate);
+        console.log(uofuEvents[i].address);
 
         if(uofuEvents[i].imgLink != null) {
             console.log("Image Link: "+uofuEvents[i].imgLink);
@@ -110,7 +111,7 @@ function test() {
         if(uofuEvents[i].location != null) {
             console.log("Location: "+uofuEvents[i].location);
         }
-        if(uofuEvents[i].about != null) {
+        if(uofuEvents[i].description != null) {
             console.log("Description: "+uofuEvents[i].description);
         }
 
@@ -123,47 +124,48 @@ function parseDetails(details) {
     details = details.toString();
     var length = details.length;
     var info = [];
-    
+
     info.time = extractTime(details);
+    info.date = extractDate(details);
+    info.address = extractAddress(details);
     
-   var doc = new JSDOM("<!DOCTYPE html><html>" + details + "</html>").window.document;
+    var doc = new JSDOM("<!DOCTYPE html><html>" + details + "</html>").window.document;
    
-   var allElements = doc.querySelector('body').childNodes;
-   for(var i=0; i<allElements.length; i++) {
-       if(allElements[i].nodeName == 'BR' || allElements[i].nodeName == 'A') {
-           continue;
-          }
-       if(allElements[i].nodeName == 'B') {
-           var label = allElements[i].innerHTML;
-           
-           //get the location
-           if( label.toLowerCase().search("location") > -1) {
-               var anchorTag = allElements[i].nextSibling.nextSibling;
-               if(anchorTag.innerHTML != null) {
-                   info.location = anchorTag.innerHTML.toString();
-               } else {
-                   info.location = "none";
-               }
-               //need to find room #
-           }
+    var allElements = doc.querySelector('body').childNodes;
+    for(var i=0; i<allElements.length; i++) {
+        if(allElements[i].nodeName == 'BR' || allElements[i].nodeName == 'A') {
+            continue;
+            }
+        if(allElements[i].nodeName == 'B') {
+            var label = allElements[i].innerHTML;
+            
+            //get the location
+            if( label.toLowerCase().search("location") > -1) {
+                var anchorTag = allElements[i].nextSibling.nextSibling;
+                if(anchorTag.innerHTML != null) {
+                    info.location = anchorTag.innerHTML.toString();
+                } else {
+                    info.location = "none";
+                }
+                //need to find room #
+            }
 
-           //get the full description of the event
-           if(label.toLowerCase().search("full description") > -1) {
-               var descript = allElements[i].nextSibling.nodeValue.replace(":", "");
-               
-               info.about = descript;
-           }
-           console.log(info.about);
-       }
-   }
-    
-   //get the image url
-   var imgEl = doc.querySelector("img");
-   if(imgEl != null) {
-       info.imgLink = imgEl.attributes[0].value.toString();
-   }
+            //get the full description of the event
+            if(label.toLowerCase().search("full description") > -1) {
+                var descript = allElements[i].nextSibling.nodeValue.replace(":", "");
+                
+                info.about = descript;
+            }
+        }
+    }
+        
+    //get the image url
+    var imgEl = doc.querySelector("img");
+    if(imgEl != null) {
+        info.imgLink = imgEl.attributes[0].value.toString();
+    }
 
-   return info;
+    return info;
 }
 
 function extractTime(details) {
@@ -179,6 +181,40 @@ function extractTime(details) {
     }
 
     return null;
+}
+
+var count = 0;
+
+function extractDate(details) {
+    var patt = /(Mon|Tues|Wednes|Thurs|Fri|Satur|Sun)day, [A-Za-z]* \d+, \d\d\d\d/;
+
+    var temp = patt.exec(details);
+    var date;
+    if(temp != null) {
+        date = temp[0];
+    } else {
+        date = "tbd";
+    }
+
+    return date;
+}
+
+function extractAddress(details) {
+    var patt = /(Mon|Tues|Wednes|Thurs|Fri|Satur|Sun)day, [A-Za-z]* \d+, \d\d\d\d/;
+
+    var temp = patt.exec(details);
+    var address;
+    if(temp != null) {
+        address = details.substring(0,temp['index']);
+        while(address.search("<br />") != -1) {
+            address = address.replace(/<br( )*\/>/, "\n");
+        }
+        address = address.replace(/<br( )*\/>/, "\n");
+    } else {
+        address = "tbd";
+    }
+
+    return address;
 }
 
 // function extractInfo(details, info) {
