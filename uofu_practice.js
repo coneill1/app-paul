@@ -2,6 +2,7 @@ var xml2js = require('xml2js');
 var parser = new xml2js.Parser();
 var http = require("http");
 var https = require('https');
+var he = require('he');
 const reDate = /\w*( )*\w*( )*(Mon|Tues|Wednes|Thurs|Fri|Satur|Sun)day, [A-Za-z]* \d+, \d\d\d\d/;
 const reTime = /[0-9]+:*[0-9]*(am|pm)*&nbsp;&ndash;&nbsp;[0-9]+:*[0-9]*(am|pm)*/;
 const reImgEl = /<img.+?\/>/;
@@ -11,6 +12,8 @@ var uofu_all_xml_link = "https://www.trumba.com/calendars/university-of-utah.rss
 parser.reset();
 var uData = '';
 var uofuEvents = [];
+
+
 
 
 /**
@@ -46,7 +49,7 @@ https.get(uofu_all_xml_link, function(result, err) {
                 uofuEvents[i] = event;
             }
 
-            test();
+           test();
         })
         
     })
@@ -147,11 +150,11 @@ function getFullDeats(details) {
     
     var patt = /<b>.+?<\/b>/g, bElements;
     var target;
-    var start = -1, end;
+    var start, end;
     var fullDeats = '';
     
     while(bElements = patt.exec(details)) {
-        target = bElements[0].slice(3,bElements[0].length-4);
+        target = bElements[0].slice(3, -4);
         if(target == "Full Description") {
             start = patt.lastIndex;
             end = details.indexOf("<b>", start);
@@ -159,14 +162,23 @@ function getFullDeats(details) {
         }
     }
     
-    if(start > -1 && end != undefined) {
+    if(start != undefined && end != undefined) {
         fullDeats = details.slice(start, end);
         
-        fullDeats = fullDeats.replace("<br/>", "").replace(":&nbsp;", ""); 
+        fullDeats = fullDeats.replace("<br/>", "\n");
+        fullDeats = he.decode(fullDeats);
+        
+        
+        var link = fullDeats.match(/http.+?"/);
+        if(link != null) { 
+            link = link[0].slice(0, -1);
+            fullDeats = fullDeats.replace(/<a.+?>.*?<\/a>/, link);
+        }
         
         /*************************************************************Need to take out all html codes from description*****************************************************************************/
     }
-    return fullDeats;
+    
+    return fullDeats.replace(/\.,( )+/, ".\n").substring(1);
 }
 
 function getDescription(details) {
@@ -184,8 +196,12 @@ function getDescription(details) {
         }
     }
     
+    if(description.search(/<b>/) > -1) {
+        description = '';
+    }
+    
     /*************************************************************Need to take out all html tags from description*****************************************************************************/
-    return description;
+    return he.decode(description);
 }
 
 function getImgLink(details) {
@@ -201,7 +217,7 @@ function getImgLink(details) {
     //extract href attr from img element
     temp = hrefPat.exec(imgLink);
     if(temp != null) {
-        imgLink = temp[0].slice(1,temp[0].length-1);
+        imgLink = temp[0].slice(1, -1);
     }
     
     return imgLink;
@@ -212,7 +228,9 @@ function getTime(details) {
     var t = reTime.exec(details);
     t!=null ? time = t[0] : time = '';
     
-    return time.replace("&nbsp;&ndash;&nbsp;", " - ");
+    time = he.decode(time);
+    
+    return time;
 }
 
 function getDate(details) {
@@ -254,7 +272,7 @@ function getLocation(details) {
         
         temp = (/>.+?</).exec(location);
         if(temp!= null) {
-            location = temp[0].slice(1,temp[0].length-1);
+            location = temp[0].slice(1, -1);
         }
         
     }
