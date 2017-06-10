@@ -6,15 +6,12 @@ var he = require('he');
 const reDate = /\w*( )*\w*( )*(Mon|Tues|Wednes|Thurs|Fri|Satur|Sun)day, [A-Za-z]* \d+, \d\d\d\d/;
 const reTime = /[0-9]+:*[0-9]*(am|pm)*&nbsp;&ndash;&nbsp;[0-9]+:*[0-9]*(am|pm)*/;
 const reImgEl = /<img.+?\/>/;
+const brPat = /<br( )*\//;
 
 var uofu_all_xml_link = "https://www.trumba.com/calendars/university-of-utah.rss?filterview=Campus+Wide&filter1=_383012_&filterfield1=29306";
 
-parser.reset();
 var uData = '';
 var uofuEvents = [];
-
-
-
 
 /**
 Event attributes:
@@ -178,7 +175,7 @@ function getFullDeats(details) {
         /*************************************************************Need to take out all html codes from description*****************************************************************************/
     }
     
-    return fullDeats.replace(/\.,( )+/, ".\n").substring(1);
+    return fullDeats.replace(/\.,( )+/, ".\n!\n").substring(1);
 }
 
 function getDescription(details) {
@@ -199,6 +196,18 @@ function getDescription(details) {
     if(description.search(/<b>/) > -1) {
         description = '';
     }
+
+    var link = description.match(/http.+?"/);
+    if(link != null) { 
+        link = link[0].slice(0, -1);
+        description = description.replace(/<a.+?>.*?<\/a>/, link);
+    }
+
+    var brEls;
+    while(brEls = brPat.exec(description)) {
+        description.replace(brEls[0], "\n!\n");
+    }
+    
     
     /*************************************************************Need to take out all html tags from description*****************************************************************************/
     return he.decode(description);
