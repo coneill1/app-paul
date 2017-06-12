@@ -1,93 +1,14 @@
-var xml2js = require('xml2js');
-var parser = new xml2js.Parser();
-var http = require("http");
-var https = require('https');
+//testing output of scraped data from uofu events
 var he = require('he');
 const reDate = /\w*( )*\w*( )*(Mon|Tues|Wednes|Thurs|Fri|Satur|Sun)day, [A-Za-z]* \d+, \d\d\d\d/;
 const reTime = /[0-9]+:*[0-9]*(am|pm)*&nbsp;&ndash;&nbsp;[0-9]+:*[0-9]*(am|pm)*/;
 const reImgEl = /<img.+?\/>/;
 const brPat = /<br( )*\/>/;
 
-var uofu_all_xml_link = "https://www.trumba.com/calendars/university-of-utah.rss?filterview=Campus+Wide&filter1=_383012_&filterfield1=29306";
 
-var uData = '';
-var uofuEvents = [];
+var rawTxt = 'Tuesday, June 13, 2017, 1&nbsp;&ndash;&nbsp;1:30pm <br/><br/><img src="https://www.trumba.com/i/DgCiO5MLRuUQ0EsobKdgRtAC.jpg" title="UIT Talks: How Does IT Governance Work at the University of Utah?" alt="UIT Talks: How Does IT Governance Work at the University of Utah?" width="100" height="91" /><br/><br/>UIT Talks is a new semi-regular town hall program designed to provide information and dialog opportunities for the University of Utah community regarding University Information Technology (UIT) initiatives, projects, and services. Scott Sherman, Office of the CIO, will present. 1:00 p.m. - 1:30 p.m., 102 Tower [<a href="https://www.google.com/maps/place/102+S+200+E,+Salt+Lake+City,+UT+84138/@40.7667947,-111.8882053,17z/data=!3m1!4b1!4m5!3m4!1s0x8752f50c3a82596b:0x1617851e40cef6aa!8m2!3d40.7667757!4d-111.8856856?shorturl=1" target="_blank">map</a>], Zion Conference Room, 5th floor, Room 5150 + <a href="https://meet.umail.utah.edu/u0294452/4QHV5B97" target="_blank">Skype</a> meeting (will be recorded). <br/><br/><b>Alternate Location</b>:&nbsp;102 Tower, 102 S 200 E, Salt Lake City <br/><b>Room Name/Number</b>:&nbsp;Zion Conference Room 5150 <br/><b>Cost</b>:&nbsp;Free <br/><b>Contact Name</b>:&nbsp;UIT Strategic Communications <br/><b>Contact Phone</b>:&nbsp;801-585-3918 <br/><b>Contact Email</b>:&nbsp;<a href="mailto:stratcomm@it.utah.edu" target="_blank">stratcomm@it.utah.edu</a> <br/><b>Campus Wide Event</b>:&nbsp;Yes <br/><b>More info</b>:&nbsp;<a href="http://it.utahedu/uit-talks/uit-talks-events.php" target="_blank" title="http://it.utahedu/uit-talks/uit-talks-events.php">it.utahedu&#8230;</a> <br/><br/>';
 
-/**
-Event attributes:
-    title;
-    time;
-    date;
-    imgLink;
-    location;
-    description;
-    fullDeats;
-*/
-
-https.get(uofu_all_xml_link, function(result, err) {
-    result.on('data', function(uData_) {uData += uData_.toString();});
-    result.on('end', function() {
-        parser.parseString(uData, function(err, result) {
-            var length = result.rss.channel[0].item.length;
-            var item = result.rss.channel[0].item;
-            
-            for(var i=0; i<30; i++) {
-                var event = [];
-                
-                event.title = item[i].title.toString();
-                var details = parseDetails(item[i].description.toString());
-                
-                event.time = details.time;
-                event.location = details.location;
-                event.imgLink = details.imgLink;
-                event.date = details.date;
-                event.description = details.description;
-                event.fullDeats = details.fullDeats;
-
-                uofuEvents[i] = event;
-            }
-
-           test();
-        })
-        
-    })
-})
-
-function test() {
-    for(var i = 0; i<30; i++) {
-        console.log("Event: "+uofuEvents[i].title);
-        if(uofuEvents[i].description.length > 0) {
-            console.log("Description: "+uofuEvents[i].description);
-        }
-        if(uofuEvents[i].date.length > 0) {
-            console.log("Date: "+uofuEvents[i].date);
-        }
-
-        if(uofuEvents[i].imgLink.length > 0) {
-            console.log("Image Link: "+uofuEvents[i].imgLink);
-        }
-        if(uofuEvents[i].time.length > 0) {
-            console.log("Time: "+uofuEvents[i].time);
-        }
-        
-        if(uofuEvents[i].location.length > 0) {
-            console.log("Location: "+uofuEvents[i].location);
-        }
-        if(uofuEvents[i].fullDeats.length > 0) {
-            console.log("Full Details: "+uofuEvents[i].fullDeats);
-        }
-        
-
-        console.log();
-    }
-}
-
-function parseDetails(details) {
-    
-    var info = getDetails(details);
-
-    return info;
-}
+getDetails(rawTxt);
 
 function getDetails(details) {
     
@@ -97,30 +18,36 @@ function getDetails(details) {
     var time = getTime(details);
     details = condenseDetails(details, reTime);
     
+    console.log(details+"\n");
+    
     //get the date
     var date = getDate(details);
     details = condenseDetails(details, reDate);
+    
+    console.log(details+"\n");
     
     //get img url
     var imgLink = getImgLink(details);
     details = condenseDetails(details, reImgEl);
     
+    console.log(details+"\n");
+    
     //get description (preview)
     var description = getDescription(details);
     
-    //get location
-    var location = getLocation(details);
-    
-    var fullDeats = getFullDeats(details);
-    
-    var indexToSlice = details.search(/<b>/);
-    
-    deats.time = time;
-    deats.date = date;
-    deats.imgLink = imgLink;
-    deats.location = location;
-    deats.description = description;
-    deats.fullDeats = fullDeats;
+//    //get location
+//    var location = getLocation(details);
+//    
+//    var fullDeats = getFullDeats(details);
+//    
+//    var indexToSlice = details.search(/<b>/);
+//    
+//    deats.time = time;
+//    deats.date = date;
+//    deats.imgLink = imgLink;
+//    deats.location = location;
+//    deats.description = description;
+//    deats.fullDeats = fullDeats;
     
     //testOutput(deats);
     
@@ -209,6 +136,10 @@ function getDescription(details) {
 //        link = link[0].slice(0, -1);
 //        description = description.replace(/<a.+?>.*?<\/a>/, link);
 //    }
+    var linkPat = /http.+?"/g, lMatch;
+    while(lMatch = linkPat.exec(description)) {
+        description = description.replace(/<a.+?>.*?<\/a>/, lMatch[0].slice(0, -1));
+    }
     
     var commaSpacePat = /,( ){3,}/g;
     var csMatch;
@@ -228,6 +159,9 @@ function getDescription(details) {
     while(match = htmlElsPat.exec(description)) {
         description = description.replace(match[0], "");
     }
+    
+    console.log(he.decode(description)+"\n");
+    
     return he.decode(description);
 }
 
@@ -305,6 +239,4 @@ function getLocation(details) {
     }
     return location;
 }
-
-
 
