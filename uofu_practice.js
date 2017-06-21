@@ -3,10 +3,11 @@ var parser = new xml2js.Parser();
 var http = require("http");
 var https = require('https');
 var he = require('he');
-const reDate = /\w*( )*\w*( )*(Mon|Tues|Wednes|Thurs|Fri|Satur|Sun)day, [A-Za-z]* \d+, \d\d\d\d/;
-const reTime = /[0-9]+:*[0-9]*(am|pm)*&nbsp;&ndash;&nbsp;[0-9]+:*[0-9]*(am|pm)*/;
-const reImgEl = /<img.+?\/>/;
+const reDate = /\w*( )*\w*( )*(Mon|Tues|Wednes|Thurs|Fri|Satur|Sun)day, [A-Za-z]* \d+, \d\d\d\d/g;
+const reTime = /[0-9]+:*[0-9]*(am|pm)*&nbsp;&ndash;&nbsp;[0-9]+:*[0-9]*(am|pm)*/g;
+const reImgEl = /<img.+?\/>/g;
 const brPat = /<br( )*\/>/;
+const anchorTag = /<a.+?>.*?<\/a>/; 
 
 var uofu_all_xml_link = "https://www.trumba.com/calendars/university-of-utah.rss?filterview=Campus+Wide&filter1=_383012_&filterfield1=29306";
 
@@ -31,7 +32,7 @@ https.get(uofu_all_xml_link, function(result, err) {
             var length = result.rss.channel[0].item.length;
             var item = result.rss.channel[0].item;
             
-            for(var i=0; i<30; i++) {
+            for(var i=0; i<length; i++) {
                 var event = [];
                 
                 event.title = item[i].title.toString();
@@ -54,7 +55,7 @@ https.get(uofu_all_xml_link, function(result, err) {
 })
 
 function test() {
-    for(var i = 0; i<30; i++) {
+    for(var i = 0; i<uofuEvents.length; i++) {
         console.log("Event: "+uofuEvents[i].title);
         if(uofuEvents[i].description.length > 0) {
             console.log("Description: "+uofuEvents[i].description);
@@ -172,7 +173,6 @@ function getFullDeats(details) {
             fullDeats = fullDeats.replace(/<a.+?>.*?<\/a>/, link);
         }
         
-        /*************************************************************Need to take out all html codes from description*****************************************************************************/
     }
     
     var commaSpacePat = /,( ){4,}/g;
@@ -188,15 +188,17 @@ function getFullDeats(details) {
 function getDescription(details) {
     var description = '';
     var patt = /<br\/><br\/>.+?<br\/><br\/>/;
-    var patt2 = /<br\/><br\/>/;
+    var patt2 = /<br( )*\/><br( )*\/>/;
     
     var temp = patt.exec(details);
     if(temp != null) {
         description = temp[0];
         
         //take out the break elements
-        while(temp = patt2.exec(description) !== null) {
-            description = description.replace(patt2, "");
+        while(temp = patt2.exec(description)) {
+            if(temp != null) {
+                description = description.replace(temp[0], "");
+            }
         }
     }
     
@@ -204,30 +206,48 @@ function getDescription(details) {
         description = '';
     }
 
-//    var link = description.match(/http.+?"/);
-//    if(link != null) { 
-//        link = link[0].slice(0, -1);
-//        description = description.replace(/<a.+?>.*?<\/a>/, link);
-//    }
+    //get link
+    var link;
     
-    var commaSpacePat = /,( ){3,}/g;
-    var csMatch;
-    while(csMatch = commaSpacePat.exec(description)) {
-        description = description.replace(csMatch[0], "\n");
-        console.log(csMatch);
+    //get email address if there
+    while(temp = anchorTag.exec(description)) {
+        if(temp != null) {
+            link = temp[0].match(/mailto/);
+            if(link != null) {
+                description = description.replace(/<a.*?>/, "");
+                description = description.replace(/<\/a>/, "");
+            }
+            else {
+                link = temp[0].match(/http.+?"/);
+                if(link != null) {
+                    description = description.replace(anchorTag, link[0].slice(0, -1));
+                }
+            }
+        }
     }
+    
 
     var brEls;
     while(brEls = brPat.exec(description)) {
         description = description.replace(brEls[0], "\n");
     }
     
+    while(temp = (/<li>/).exec(description)) {
+        description = description.replace(temp[0], " -");
+        description = description.replace(/<\/li>/, "\n");
+    }
+    
+    while(temp = (/<ul>/).exec(description)) {
+        description = description.replace(temp[0], "\n");
+        description = description.replace(/\/ul>/, "\n");
+    }
     
     var htmlElsPat = /<.+?>/;
     var match;
     while(match = htmlElsPat.exec(description)) {
         description = description.replace(match[0], "");
     }
+    
     return he.decode(description);
 }
 
@@ -281,6 +301,13 @@ function getLocation(details) {
         var brTagPat = /<br( )*\/>/g;
         while(temp = brTagPat.exec(location) !== null) {
             location = location.replace(brTagPat, ", ");
+        }
+        
+        while(temp = anchorTag.exec(location)) {
+            if(temp != null) {
+                var link = temp[0].match(/http.+?"/)
+                location = location.replace(temp[0], link.slice(0,-1));
+            }
         }
         
     }
